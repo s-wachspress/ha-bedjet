@@ -3,23 +3,17 @@ from datetime import datetime
 import logging
 import asyncio
 from homeassistant.components.climate import ClimateEntity
-from homeassistant.const import CONF_MAC, TEMP_FAHRENHEIT
+from homeassistant.const import CONF_MAC, UnitOfTemperature
 from homeassistant.components import bluetooth
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.entity import DeviceInfo
 
 from homeassistant.const import (
-    TEMP_FAHRENHEIT,
     ATTR_TEMPERATURE
 )
 from homeassistant.components.climate.const import (
-    SUPPORT_TARGET_TEMPERATURE,
-    SUPPORT_PRESET_MODE,
-    SUPPORT_FAN_MODE,
-    HVAC_MODE_OFF,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_COOL,
-    HVAC_MODE_DRY
+    ClimateEntityFeature,
+    HVACMode as OriginalHVACMode
 )
 
 from . import DOMAIN
@@ -83,11 +77,11 @@ class BedjetDevice:
             await entity.update_data()
     
 class FanMode(Enum):
-    FAN_MIN = 10
-    FAN_LOW = 25
-    FAN_MEDIUM = 50
-    FAN_HIGH = 75
-    FAN_MAX = 100
+    min = 10
+    low = 25
+    medium = 50
+    high = 75
+    max = 100
 
     @staticmethod
     def get_fan_mode(fan_pct: int | None):
@@ -102,10 +96,10 @@ class FanMode(Enum):
 
 
 class HVACMode(Enum):
-    off = HVAC_MODE_OFF
-    cool = HVAC_MODE_COOL
-    heat = HVAC_MODE_HEAT
-    dry = HVAC_MODE_DRY
+    off = OriginalHVACMode.OFF
+    cool = OriginalHVACMode.COOL
+    heat = OriginalHVACMode.HEAT
+    dry = OriginalHVACMode.DRY
 
     def command(self):
         return BEDJET_COMMANDS.get(self.value)
@@ -213,7 +207,7 @@ class BedjetDeviceEntity(ClimateEntity):
 
     @property
     def temperature_unit(self) -> str:
-        return TEMP_FAHRENHEIT
+        return UnitOfTemperature.FAHRENHEIT
 
     @property
     def hvac_modes(self) -> list[str]:
@@ -221,7 +215,7 @@ class BedjetDeviceEntity(ClimateEntity):
 
     @property
     def supported_features(self):
-        return SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE | SUPPORT_FAN_MODE
+        return ClimateEntityFeature.TARGET_TEMPERATURE  | ClimateEntityFeature.PRESET_MODE | ClimateEntityFeature.FAN_MODE | ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
 
     @property
     def preset_modes(self) -> list[str]:
@@ -290,7 +284,7 @@ class BedjetDeviceEntity(ClimateEntity):
         self._last_seen = value
 
     async def connect(self, max_retries=10):
-        reconnect_interval = 3
+        reconnect_interval = 10
         for i in range(0, max_retries):
             try:
                 _LOGGER.info(f'Attempting to connect to {self.mac}.')
@@ -358,7 +352,7 @@ class BedjetDeviceEntity(ClimateEntity):
             if value[14] == 0x50 and value[13] == 0x2d:
                 return PresetMode.heat
             if value[14] == 0x3e:
-                return PresetMode.heat
+                return PresetMode.dry
             if value[14] == 0x43:
                 return PresetMode.ext_ht
             if value[14] == 0x20:
