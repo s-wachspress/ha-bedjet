@@ -30,7 +30,7 @@ async def discover(hass):
         hass, connectable=True)
 
     bedjet_devices = [
-        service_info.device for service_info in service_infos if service_info.name == 'BEDJET_V3'
+        service_info.device for service_info in service_infos if 'BEDJET' in service_info.name
     ]
 
     if not bedjet_devices:
